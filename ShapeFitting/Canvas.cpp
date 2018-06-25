@@ -20,9 +20,10 @@ void Canvas::loadImage(const QString& filename) {
 	image = orig_image.scaled(orig_image.width() * image_scale, orig_image.height() * image_scale);
 
 	cv::Mat mat = cv::Mat(orig_image.height(), orig_image.width(), CV_8UC1, orig_image.bits(), orig_image.bytesPerLine()).clone();
-	polygons = findContours(mat, 40, true);
-	for (int i = 0; i < polygons.size(); i++) {
-		cv::approxPolyDP(polygons[i], polygons[i], 2, true);
+	polygons = findContours(mat, 40, true, false, true);
+
+	for (auto& polygon : polygons) {
+		polygon = simplifyContour(polygon, 4);
 	}
 
 	simplified_polygons.clear();

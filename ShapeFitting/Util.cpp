@@ -3,20 +3,57 @@
 /**
  * Find the contour polygons from the image.
  */
-std::vector<std::vector<cv::Point2f>> findContours(const cv::Mat& image, int threshold, bool simplify) {
+std::vector<std::vector<cv::Point2f>> findContours(const cv::Mat& image, int threshold, bool simplify, bool allow_diagonal, bool dilate) {
 	std::vector<std::vector<cv::Point2f>> polygons;
 
 	cv::Mat mat = image.clone();
 	cv::threshold(mat, mat, threshold, 255, cv::THRESH_BINARY);
 
+	cv::Mat_<uchar> mat2 = mat.clone();
+
+	// if diagonal is not allowwd, dilate the diagonal connection.
+	if (!allow_diagonal) {
+		while (true) {
+			bool updated = false;
+			for (int r = 0; r < mat.rows - 1; r++) {
+				for (int c = 0; c < mat.cols - 1; c++) {
+					if (mat2(r, c) == 255 && mat2(r + 1, c + 1) == 255 && mat2(r + 1, c) == 0 && mat2(r, c + 1) == 0) {
+						updated = true;
+						mat2(r + 1, c) = 255;
+					}
+					else if (mat2(r, c) == 0 && mat2(r + 1, c + 1) == 0 && mat2(r + 1, c) == 255 && mat2(r, c + 1) == 255) {
+						updated = true;
+						mat2(r, c) = 255;
+					}
+				}
+			}
+			if (!updated) break;
+		}
+	}
+
+	// dilate the image
+	if (dilate) {
+		// resize x4
+		cv::Mat_<uchar> img3;
+		cv::resize(mat2, img3, cv::Size(mat2.cols * 4, mat2.rows * 4), 0, 0, cv::INTER_NEAREST);
+
+		// add padding
+		cv::Mat_<uchar> padded = cv::Mat_<uchar>::zeros(img3.rows + 1, img3.cols + 1);
+		img3.copyTo(padded(cv::Rect(0, 0, img3.cols, img3.rows)));
+
+		// dilate image
+		cv::Mat_<uchar> kernel = (cv::Mat_<uchar>(3, 3) << 1, 1, 0, 1, 1, 0, 0, 0, 0);
+		cv::dilate(padded, mat2, kernel);
+	}
+
 	// extract contours
 	std::vector<std::vector<cv::Point>> contours;
 	std::vector<cv::Vec4i> hierarchy;
 	if (simplify) {
-		cv::findContours(mat, contours, hierarchy, cv::RETR_CCOMP, cv::CHAIN_APPROX_SIMPLE, cv::Point(0, 0));
+		cv::findContours(mat2, contours, hierarchy, cv::RETR_CCOMP, cv::CHAIN_APPROX_SIMPLE, cv::Point(0, 0));
 	}
 	else {
-		cv::findContours(mat, contours, hierarchy, cv::RETR_CCOMP, cv::CHAIN_APPROX_NONE, cv::Point(0, 0));
+		cv::findContours(mat2, contours, hierarchy, cv::RETR_CCOMP, cv::CHAIN_APPROX_NONE, cv::Point(0, 0));
 	}
 
 	for (int i = 0; i < hierarchy.size(); i++) {
@@ -26,7 +63,15 @@ std::vector<std::vector<cv::Point2f>> findContours(const cv::Mat& image, int thr
 		std::vector<cv::Point2f> polygon;
 		polygon.resize(contours[i].size());
 		for (int j = 0; j < contours[i].size(); j++) {
-			polygon[j] = cv::Point2f(contours[i][j].x, contours[i][j].y);
+			if (dilate) {
+				polygon[j] = cv::Point2f(std::round(contours[i][j].x * 0.25), std::round(contours[i][j].y * 0.25));
+			}
+			else {
+				polygon[j] = cv::Point2f(contours[i][j].x, contours[i][j].y);
+			}
+		}
+		if (dilate) {
+			polygon = removeRedundantPoint(polygon);
 		}
 
 		if (polygon.size() >= 3) {
@@ -43,6 +88,49 @@ std::vector<std::vector<cv::Point2f>> findContours(const cv::Mat& image, int thr
 	}
 
 	return polygons;
+}
+
+std::vector<cv::Point2f> removeRedundantPoint(const std::vector<cv::Point2f>& polygon) {
+	std::vector<cv::Point2f> ans;
+	if (polygon.size() == 0) return ans;
+
+	ans.push_back(polygon[0]);
+	for (int i = 1; i < polygon.size(); i++) {
+		if (polygon[i] != polygon[i - 1]) {
+			ans.push_back(polygon[i]);
+		}
+	}
+	if (ans.size() > 1 && ans.back() == ans.front()) ans.pop_back();
+
+	/*
+	for (int i = 0; i < ans.size() && ans.size() >= 3;) {
+		int prev = (i - 1 + ans.size()) % ans.size();
+		int next = (i + 1) % ans.size();
+		if (dotProduct(ans[i] - ans[prev], ans[next] - ans[i]) > 0 && std::abs(crossProduct(ans[i] - ans[prev], ans[next] - ans[i])) < 0.0001) {
+			ans.erase(ans.begin() + i);
+		}
+		else {
+			i++;
+		}
+	}
+	*/
+
+	return ans;
+}
+
+std::vector<cv::Point2f> simplifyContour(const std::vector<cv::Point2f>& polygon, float epsilon) {
+	std::vector<cv::Point2f> ans;
+	cv::approxPolyDP(polygon, ans, epsilon, true);
+	if (isSimple(ans)) return ans;
+	else return polygon;
+}
+
+bool isSimple(const std::vector<cv::Point2f>& polygon) {
+	CGAL::Polygon_2<Kernel> pol;
+	for (auto& pt : polygon) {
+		pol.push_back(Kernel::Point_2(pt.x, pt.y));
+	}
+	return pol.is_simple();
 }
 
 /**
@@ -171,53 +259,4 @@ float area(const CGAL::Polygon_with_holes_2<Kernel>& pwh) {
 	}
 
 	return ans;
-}
-
-float calculateImageBasedIOU(const std::vector<cv::Point2f>& polygon1, const std::vector<cv::Point2f>& polygon2) {
-	int min_x = INT_MAX;
-	int min_y = INT_MAX;
-	int max_x = INT_MIN;
-	int max_y = INT_MIN;
-	for (int i = 0; i < polygon1.size(); i++) {
-		min_x = std::min(min_x, (int)polygon1[i].x);
-		min_y = std::min(min_y, (int)polygon1[i].y);
-		max_x = std::max(max_x, (int)(polygon1[i].x + 0.5));
-		max_y = std::max(max_y, (int)(polygon1[i].y + 0.5));
-	}
-	for (int i = 0; i < polygon2.size(); i++) {
-		min_x = std::min(min_x, (int)polygon2[i].x);
-		min_y = std::min(min_y, (int)polygon2[i].y);
-		max_x = std::max(max_x, (int)(polygon2[i].x + 0.5));
-		max_y = std::max(max_y, (int)(polygon2[i].y + 0.5));
-	}
-
-	cv::Mat_<uchar> img1 = cv::Mat_<uchar>::zeros(max_y - min_y + 1, max_x - min_x + 1);
-
-	std::vector<std::vector<cv::Point>> contour_points1(1);
-	contour_points1[0].resize(polygon1.size());
-	for (int i = 0; i < polygon1.size(); i++) {
-		contour_points1[0][i] = cv::Point(polygon1[i].x - min_x, polygon1[i].y - min_y);
-	}
-	cv::fillPoly(img1, contour_points1, cv::Scalar(255), cv::LINE_4);
-
-	cv::Mat_<uchar> img2 = cv::Mat_<uchar>::zeros(max_y - min_y + 1, max_x - min_x + 1);
-
-	std::vector<std::vector<cv::Point>> contour_points2(1);
-	contour_points2[0].resize(polygon2.size());
-	for (int i = 0; i < polygon2.size(); i++) {
-		contour_points2[0][i] = cv::Point(polygon2[i].x - min_x, polygon2[i].y - min_y);
-	}
-	cv::fillPoly(img2, contour_points2, cv::Scalar(255), cv::LINE_4);
-
-	int inter_cnt = 0;
-	int union_cnt = 0;
-	for (int r = 0; r < img1.rows; r++) {
-		for (int c = 0; c < img1.cols; c++) {
-			if (img1(r, c) == 255 && img2(r, c) == 255) inter_cnt++;
-			if (img1(r, c) == 255 || img2(r, c) == 255) union_cnt++;
-		}
-	}
-
-	return (double)inter_cnt / union_cnt;
-
 }

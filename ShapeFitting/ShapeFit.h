@@ -20,7 +20,7 @@ class ShapeFit {
 
 		double operator() (const column_vector& arg) const {
 			std::vector<cv::Point2f> polygon;
-			for (int i = 0; i < 4; i++) {
+			for (int i = 0; i < arg.size() / 2; i++) {
 				polygon.push_back(cv::Point2f(arg(i * 2), arg(i * 2 + 1)));
 			}
 
