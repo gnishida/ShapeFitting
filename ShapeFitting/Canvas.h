@@ -12,6 +12,7 @@ private:
 	QImage orig_image;
 	QImage image;
 	float image_scale;
+	std::vector<std::vector<cv::Point2f>> dense_polygons;
 	std::vector<std::vector<cv::Point2f>> polygons;
 	std::vector<std::vector<cv::Point2f>> simplified_polygons;
 
@@ -23,7 +24,7 @@ public:
 
 	void loadImage(const QString& filename);
 	void saveImage(const QString& filename);
-	void fitShape();
+	void fitShape(int num_points);
 	void keyPressEvent(QKeyEvent* e);
 	void keyReleaseEvent(QKeyEvent* e);
 

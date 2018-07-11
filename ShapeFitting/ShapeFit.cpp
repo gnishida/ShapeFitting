@@ -6,7 +6,7 @@ ShapeFit::ShapeFit() {
 ShapeFit::~ShapeFit() {
 }
 
-std::vector<cv::Point2f> ShapeFit::fit(const std::vector<cv::Point2f>& polygon) {
+std::vector<cv::Point2f> ShapeFit::fit(const std::vector<cv::Point2f>& polygon, const std::vector<cv::Point2f>& initial_polygon) {
 	float min_x = std::numeric_limits<float>::max();
 	float min_y = std::numeric_limits<float>::max();
 	float max_x = -std::numeric_limits<float>::max();
@@ -23,6 +23,12 @@ std::vector<cv::Point2f> ShapeFit::fit(const std::vector<cv::Point2f>& polygon) 
 		normalized_polygon[i] = cv::Point2f((polygon[i].x - min_x) / (max_x - min_x), (polygon[i].y - min_y) / (max_y - min_y));
 	}
 
+	column_vector starting_point(initial_polygon.size() * 2);
+	for (int i = 0; i < initial_polygon.size(); i++) {
+		starting_point(i * 2 + 0) = (initial_polygon[i].x - min_x) / (max_x - min_x);
+		starting_point(i * 2 + 1) = (initial_polygon[i].y - min_y) / (max_y - min_y);
+	}
+
 	try {
 		/*
 		column_vector starting_point(8);
@@ -36,6 +42,7 @@ std::vector<cv::Point2f> ShapeFit::fit(const std::vector<cv::Point2f>& polygon) 
 		starting_point(7) = 0.8;
 		*/
 
+		/*
 		column_vector starting_point(16);
 		starting_point(0) = 0.3;
 		starting_point(1) = 0.1;
@@ -53,6 +60,7 @@ std::vector<cv::Point2f> ShapeFit::fit(const std::vector<cv::Point2f>& polygon) 
 		starting_point(13) = 0.7;
 		starting_point(14) = 0.1;
 		starting_point(15) = 0.3;
+		*/
 
 		BFGSSolver solver(normalized_polygon);
 		find_max_using_approximate_derivatives(dlib::bfgs_search_strategy(), dlib::objective_delta_stop_strategy(1e-7),	solver, starting_point, 1, 0.0001);

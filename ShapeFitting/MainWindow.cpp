@@ -35,6 +35,8 @@ void MainWindow::onSave() {
 }
 
 void MainWindow::onFitShape() {
-	canvas.fitShape();
+	//canvas.fitShape(9);
+	//canvas.fitShape(15);
+	canvas.fitShape(50);
 	canvas.update();
 }

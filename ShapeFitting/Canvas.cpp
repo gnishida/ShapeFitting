@@ -20,10 +20,11 @@ void Canvas::loadImage(const QString& filename) {
 	image = orig_image.scaled(orig_image.width() * image_scale, orig_image.height() * image_scale);
 
 	cv::Mat mat = cv::Mat(orig_image.height(), orig_image.width(), CV_8UC1, orig_image.bits(), orig_image.bytesPerLine()).clone();
+	dense_polygons = findContours(mat, 40, false, true, false);
 	polygons = findContours(mat, 40, true, false, true);
 
 	for (auto& polygon : polygons) {
-		polygon = simplifyContour(polygon, 4);
+		polygon = simplifyContour(polygon, 2);
 	}
 
 	simplified_polygons.clear();
@@ -35,7 +36,7 @@ void Canvas::saveImage(const QString& filename) {
 	grab().save(filename);
 }
 
-void Canvas::fitShape() {
+void Canvas::fitShape(int num_points) {
 	simplified_polygons.resize(polygons.size(), {});
 
 	int max_count = 0;
@@ -48,8 +49,15 @@ void Canvas::fitShape() {
 	}
 
 	if (max_index >= 0) {
+		// pick <num_points> points from the dense_polygon
+		std::vector<cv::Point2f> initial_polygon(num_points);
+		for (int i = 0; i < num_points; i++) {
+			initial_polygon[i] = dense_polygons[max_index][(float)dense_polygons[max_index].size() / num_points * i];
+		}
+
+
 		time_t start = clock();
-		simplified_polygons[max_index] = ShapeFit::fit(polygons[max_index]);
+		simplified_polygons[max_index] = ShapeFit::fit(polygons[max_index], initial_polygon);
 		time_t end = clock();
 		std::cout << "Time elapsed: " << (double)(end - start) / CLOCKS_PER_SEC << " sec." << std::endl;
 	}
