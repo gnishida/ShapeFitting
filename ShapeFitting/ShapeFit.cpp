@@ -63,7 +63,8 @@ std::vector<cv::Point2f> ShapeFit::fit(const std::vector<cv::Point2f>& polygon, 
 		*/
 
 		BFGSSolver solver(normalized_polygon);
-		find_max_using_approximate_derivatives(dlib::bfgs_search_strategy(), dlib::objective_delta_stop_strategy(1e-7),	solver, starting_point, 1, 0.0001);
+		//find_max_using_approximate_derivatives(dlib::bfgs_search_strategy(), dlib::objective_delta_stop_strategy(1e-7),	solver, starting_point, 1, 0.0001);
+		find_min_using_approximate_derivatives(dlib::bfgs_search_strategy(), dlib::objective_delta_stop_strategy(1e-7), solver, starting_point, 0, 0.0001);
 
 		std::vector<cv::Point2f> ans(starting_point.size() / 2);
 		for (int i = 0; i < starting_point.size() / 2; i++) {

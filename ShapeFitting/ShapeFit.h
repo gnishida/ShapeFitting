@@ -48,7 +48,9 @@ class ShapeFit {
 			*/
 
 			try {
-				return calculateIOU(polygon, target_polygon);
+				//return calculateIOU(polygon, target_polygon);
+				//return calculateIOUbyImage(polygon, target_polygon, 1000);
+				return calculatePoLIS(polygon, target_polygon);
 			}
 			catch (...) {
 				return 0;

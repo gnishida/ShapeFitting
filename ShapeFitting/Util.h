@@ -16,6 +16,9 @@ bool isSimple(const std::vector<cv::Point2f>& polygon);
 float angle_difference(float x, float xi);
 float regularize_angle_PI(float x);
 bool lineLineIntersection(const cv::Point2f& a, const cv::Point2f& b, const cv::Point2f& c, const cv::Point2f& d, double *tab, double *tcd, bool segment_only, cv::Point2f& int_pt);
+float distance(const cv::Point2f& a, const cv::Point2f& b, const cv::Point2f& c);
 
-float calculateIOU(const std::vector<cv::Point2f>& polygon1, const std::vector<cv::Point2f>& polygon2);
-float area(const CGAL::Polygon_with_holes_2<Kernel>& pwh);
+double calculateIOU(const std::vector<cv::Point2f>& polygon1, const std::vector<cv::Point2f>& polygon2);
+double calculateIOUbyImage(const std::vector<cv::Point2f>& polygon1, const std::vector<cv::Point2f>& polygon2, int image_size);
+double calculatePoLIS(const std::vector<cv::Point2f>& polygon1, const std::vector<cv::Point2f>& polygon2);
+double area(const CGAL::Polygon_with_holes_2<Kernel>& pwh);
